@@ -1,0 +1,266 @@
+/*
+*Class that allows loading large amounts of chatter data
+* Jonathan Hersh 
+*/
+
+public class DataLoaderController {
+
+    public String feedPostBody {get;set;}
+    public String feedPostComment {get;set;}
+    public String replyText {get;set;}
+    public String groupName{get;set;}
+    public String groupBody {get;set;}
+    public integer numbertoCreate        { get; set; }
+    public integer commentNumber    { get; set; }
+    public string groupid            { get; set; }
+    public string grouptype      { get; set; }
+    
+    public Task t          { get; set; }
+    public String careTeamName {get;set;}
+
+    public DataLoaderController() {
+        numbertocreate = 50;
+        groupname = 'testgroup';
+        t = new Task( ownerid = userinfo.getuserid() );
+        grouptype = 'Private';
+        commentNumber = 1;
+    }
+    
+    //loads 1,000 feed posts to the current user with the postBody and postComment
+    public PageReference loadFeedPosts() {
+        try {
+            List<FeedPost> postsToInsert = new List<FeedPost>();
+            FeedPost fp;
+            
+            if( t.ownerid == null )
+              t.ownerid = userinfo.getuserid();
+            
+            for(Integer i =0 ; i< numbertocreate ; i++) {
+                fp = new FeedPost();
+                fp.ParentId = t.ownerid;
+                fp.Body = feedPostBody + i;
+                postsToInsert.add(fp);
+            }
+            
+            insert postsToInsert;
+            
+            List<UserFeed> feed = [select Id,FeedPostId from UserFeed where FeedPostId IN :postsToInsert];
+            Map<Id,Id> userFeedToPostMap = new Map<Id,Id>();
+            for(UserFeed feedItem : feed) {
+                userFeedToPostMap.put(feedItem.FeedPostId,feedItem.Id);
+            }
+            
+            if( feedpostcomment != null && feedpostcomment != '' ) {
+              List<FeedComment> commentsToInsert = new List<FeedComment>();
+              FeedComment comment;
+              
+              for(FeedPost fPost : postsToInsert) {
+                  for( integer x = 0; x < commentNumber; x++ ) {
+                    comment = new FeedComment();
+                    comment.CommentBody = feedPostComment;
+                    comment.FeedItemId = userFeedToPostMap.get(fPost.Id);
+                    commentsToInsert.add(comment);
+                  }
+              }
+              
+              insert commentsToInsert;
+            }
+        }
+        catch(QueryException e) {
+            ApexPages.addMessages(e);
+            return null;
+        }
+        PageReference ref = new PageReference('/apex/DataLoader');  
+        ref.setRedirect(true);
+        return ref;
+    }
+    
+    public PageReference loadGroups() {
+        try {
+            CollaborationGroup groupToInsert;
+            List<CollaborationGroup> groupsToInsert = new List<CollaborationGroup>();
+            
+            for(Integer i =0 ; i< numbertocreate; i++) {
+                groupToInsert = new CollaborationGroup();
+                groupToInsert.name = groupName + i;
+                groupToInsert.collaborationtype = ( groupType != 'Mixed' ? groupType : ( Math.mod( i, 2 ) == 0 ? 'Public' : 'Private' ) );
+                groupsToInsert.add(groupToInsert);
+            }
+            insert groupsToInsert;
+        }
+        catch(QueryException e) {
+            ApexPages.addMessages(e);
+            return null;
+        }
+        PageReference ref = new PageReference('/apex/DataLoader');  
+        ref.setRedirect(true);
+        return ref;
+    }
+    
+    public void addAllUsersToGroup() {
+        try { 
+            Map<ID,User> usersInOrg = new Map<ID,User> ([select Id from User where isActive = true and usertype = 'Standard' ]);
+            
+            CollaborationGroupMember[] members = [select id, memberid
+              from CollaborationGroupMember
+              where memberid IN :usersInOrg.keySet()
+              and collaborationgroupid = :groupid];
+              
+            Set<string> alreadyMembers = new set<string> ();
+            
+            for( CollaborationGroupMember cgm : members )
+              alreadyMembers.add( cgm.memberid );
+        
+            CollaborationGroupMember publicGroupMember;     
+                List<CollaborationGroupMember> groupMembers = new List<CollaborationGroupMember>();
+                    for(User user: usersInOrg.values() ) {
+                      if( alreadyMembers.contains( user.id ) )
+                        continue;
+                      
+                            publicGroupMember = new CollaborationGroupMember();
+                            publicGroupMember.memberId =user.Id;
+                            publicGroupMember.collaborationGroupId = groupid;
+                            groupMembers.add(publicGroupMember);
+                    }
+            insert groupMembers;
+        }
+        catch( Exception e) {
+                Apexpages.addMessages(e);
+        }
+    }
+    
+   public void addPostsToGroup() {
+      try { 
+        List<FeedPost> postsToInsert = new List<FeedPost>();
+        FeedPost fp;
+        
+        for(Integer i =0 ; i< numbertocreate ; i++) {
+            fp = new FeedPost();
+            fp.ParentId = groupid;
+            fp.Body = groupBody + i;
+            postsToInsert.add(fp);
+        }
+        
+        insert postsToInsert;
+
+        }
+        catch( Exception e) {
+                Apexpages.addMessages(e);
+        }
+    }
+    
+    // Cause all users to follow this record
+    public void massFollow() {
+      if( t.ownerid == null )
+        t.ownerid = userinfo.getuserid();
+      
+      try {
+        EntitySubscription[] ess = [select subscriberid
+          from EntitySubscription
+          where parentid = :t.ownerid];
+          
+        Set<string> alreadyFollows = new Set<string> ();
+        
+        for( EntitySubscription es : ess )
+          alreadyFollows.add( es.subscriberid );
+          
+        User[] toAdd = [select id
+          from User
+          where id NOT IN :alreadyFollows
+          and id <> :t.ownerid
+          and isactive = true
+          and usertype = 'Standard'
+          limit :numbertoCreate];
+          
+        EntitySubscription[] toInsert = new EntitySubscription[] {};
+        
+        for( User u : toAdd )
+          toInsert.add( new EntitySubscription( parentid = t.ownerid, subscriberid = u.id ) );
+          
+        insert toInsert;        
+      } catch( Exception e ) {
+        Apexpages.addMessages(e);
+      }
+    }
+    
+    // Causes all users to unfollow this record
+    public void massUnfollow() {
+      if( t.ownerid == null )
+        t.ownerid = userinfo.getuserid();
+        
+      try {
+        EntitySubscription[] subs = [select subscriberid
+          from EntitySubscription
+          where parentid = :t.ownerid
+          limit :numbertocreate];
+          
+        delete subs;        
+      } catch( Exception e ) {
+        Apexpages.addMessages(e);
+      }
+    }
+
+    public SelectOption[] getGroupTypes() {
+      SelectOption[] so = new SelectOption[] {};
+      
+      for( string s : new string[] { 'Public', 'Private', 'Mixed' } )
+        so.add( new SelectOption( s, s ) );
+        
+      return so;
+    }
+    
+    public SelectOption[] getNumbers() {
+        SelectOption[] so = new SelectOption[] {};
+        
+        for( integer i : new integer[] { 1, 5, 10, 25, 50, 100, 250, 500, 1000 } )
+            so.add( new SelectOption( string.valueof( i ), string.valueof( i ) ) );
+            
+        return so;
+    }
+    
+    public SelectOption[] getSmallerNumbers() {
+        SelectOption[] so = new SelectOption[] {};
+        
+        for( integer i : new integer[] { 1, 5, 10, 25 } )
+            so.add( new SelectOption( string.valueof( i ), string.valueof( i ) ) );
+            
+        return so;
+    }
+    
+    public SelectOption[] getAllGroups() {
+        SelectOption[] so = new SelectOption[] {};
+        
+        for( collaborationgroup cg : [select id, name from Collaborationgroup order by name limit 500] )
+            so.add( new SelectOption( cg.id, cg.name ) );
+            
+        return so;
+    }
+
+  public static testmethod void runTest() {
+    DataLoaderController dlc = new DataLoaderController();
+    dlc.getGroupTypes();
+    dlc.getNumbers();
+    dlc.getSmallerNumbers();
+    dlc.getAllGroups();
+    dlc.massUnfollow();
+    dlc.massFollow();
+    
+    dlc.feedPostBody = 'test';
+    dlc.feedPostComment = 'testing';
+    dlc.loadFeedPosts();
+    
+    dlc.groupname = 'test group';
+    dlc.loadGroups();
+    
+    CollaborationGroup cg = new CollaborationGroup();
+    cg.name = 'data loader group';
+    cg.collaborationtype = 'Public';
+    insert cg;
+    
+    dlc.groupid = cg.id;
+    dlc.groupbody = 'test';
+    
+    dlc.addAllUsersToGroup();
+    dlc.addPostsToGroup();
+  }
+}

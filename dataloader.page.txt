@@ -1,0 +1,120 @@
+<!-- Jonathan Hersh - jhersh@salesforce.com - 2010 -->
+<apex:page controller="DataLoaderController" tabstyle="Chatter_Data_Loader__tab">
+
+<script>
+	jQuery.noConflict();
+
+	function setFocusOnLoad() {}
+</script>
+
+
+<apex:form >
+<apex:sectionheader title="Chatter Data Loader" />
+<apex:pageMessages />
+
+<apex:pageblock title="Data Loader Settings">
+    <apex:pageblocksection columns="1">
+        <apex:pageblocksectionitem >
+            <apex:outputlabel value="# records to create/delete" />
+            <apex:selectlist value="{!numbertocreate}" multiselect="false" size="1" >
+                <apex:selectoptions value="{!numbers}" />
+            </apex:selectlist>
+        </apex:pageblocksectionitem>    
+        <apex:pageBlockSectionItem >
+	                <apex:outputLabel value="Parent User"/>
+	                <apex:inputfield required="false" value="{!t.ownerid}"/>
+	        </apex:pageBlockSectionItem>
+    </apex:pageblocksection>
+</apex:pageblock>
+
+<apex:tabpanel switchtype="ajax">
+
+	<apex:tab label="Mass Feed Post Load">
+		<apex:pageblock >
+	    <apex:pageBlockSection columns="1">
+	    	<p>Loads posts onto the parent user (above).</p>
+	        <apex:pageBlockSectionItem >
+	                <apex:outputLabel value="Feed Post Body"/>
+	                <apex:inputText value="{!feedPostBody}"/>
+	        </apex:pageBlockSectionItem>
+	        <apex:pageBlockSectionItem >
+	            <apex:outputLabel value="Feed Post Comment (optional)"/>
+	            <apex:inputText value="{!feedPostComment}"/>
+	        </apex:pageBlockSectionItem>
+	        <apex:pageblocksectionitem >
+            <apex:outputlabel value="# Comments per Post" />
+            <apex:selectlist value="{!commentNumber}" multiselect="false" size="1" >
+                <apex:selectoptions value="{!smallerNumbers}" />
+            </apex:selectlist>
+        </apex:pageblocksectionitem>  
+	    </apex:pageBlockSection>
+	        <apex:pageBlockButtons location="bottom">
+	            <apex:commandButton value="Load Posts" action="{!loadFeedPosts}"/>
+	        </apex:pageBlockButtons>
+	    </apex:pageblock>
+	</apex:tab>
+	<apex:tab label="Mass Groups Load">
+		<apex:pageblock >
+    <apex:pageBlockSection columns="1">
+        <apex:pageBlockSectionItem >
+                <apex:outputLabel value="Group Name Prefix"/>
+                <apex:inputText value="{!groupName}"/>
+        </apex:pageBlockSectionItem>
+        <apex:pageblocksectionitem >
+            <apex:outputlabel value="Group Type" />
+            <apex:selectradio value="{!grouptype}" layout="pagedirection" >
+                <apex:selectoptions value="{!groupTypes}" />
+            </apex:selectradio>
+        </apex:pageblocksectionitem>
+    </apex:pageBlockSection>
+        <apex:pageBlockButtons location="bottom">
+            <apex:commandButton value="Load Groups" action="{!loadGroups}"/>
+        </apex:pageBlockButtons>
+        </apex:pageblock>
+	</apex:tab>
+
+<apex:tab label="Group Member/Feed Load">
+	<apex:pageblock >
+    <apex:pageblockbuttons location="bottom">
+        <apex:commandButton value="Add All Users to Group" action="{!addAllUsersToGroup}"/>
+          <apex:commandButton value="Add Posts to Selected Group" action="{!addPostsToGroup}"/>
+    </apex:pageblockbuttons>
+    <apex:Pageblocksection columns="1">
+        <apex:pageblocksectionitem >
+            <apex:outputlabel value="Group Name" />
+            <apex:selectlist value="{!groupid}" multiselect="false" size="1" >
+                <apex:selectoptions value="{!allgroups}" />
+            </apex:selectlist>
+        </apex:pageblocksectionitem>  
+         <apex:pageBlockSectionItem >
+                <apex:outputLabel value="Group Post Body"/>
+                <apex:inputText value="{!groupBody}"/>
+        </apex:pageBlockSectionItem>
+    </apex:Pageblocksection>
+    </apex:pageblock>
+</apex:tab>
+
+<apex:tab label="Mass Follow">
+	<apex:pageblock >
+    <apex:pageblockbuttons location="bottom">
+        <apex:commandButton value="Mass Follow" action="{!massFollow}"/>
+    </apex:pageblockbuttons>
+    <p>Causes all users (up to the # specified above) to follow the parent user (above).</p>
+    </apex:pageblock>
+</apex:tab>
+
+<apex:tab label="Mass Unfollow">
+	<apex:pageblock >
+    <apex:pageblockbuttons location="bottom">
+        <apex:commandButton value="Mass Unfollow" action="{!massUnfollow}"/>
+    </apex:pageblockbuttons>
+    <p>Causes all users (up to the # specified above) to unfollow the parent user (above).</p>
+    </apex:pageblock>
+</apex:tab>
+
+
+</apex:tabpanel>
+
+</apex:form>
+
+</apex:page>
